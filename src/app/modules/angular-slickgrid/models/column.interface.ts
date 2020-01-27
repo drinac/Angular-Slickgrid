@@ -12,6 +12,7 @@ import { OnEventArgs } from './onEventArgs.interface';
 import { Sorter } from './sorter.interface';
 
 export interface Column {
+  
   /** async background post-rendering formatter */
   asyncPostRender?: (domCellNode: any, row: number, dataContext: any, columnDef: Column) => void;
 
@@ -60,11 +61,19 @@ export interface Column {
   /** Defaults to false, which leads to exclude the column from getting a header menu. For example, the checkbox row selection should not have a header menu. */
   excludeFromHeaderMenu?: boolean;
 
+  /** If defined this will be set as column width in excel */
+  exportColumnWidth?: number;
   /**
    * Export with a Custom Formatter, useful when we want to use a different Formatter for the export.
    * For example, we might have a boolean field with "Formatters.checkmark" but we would like see a translated value for (True/False).
    */
   exportCustomFormatter?: Formatter;
+  
+  /**
+   * Export with a Custom Formatter Totals, useful when we want to use a different Formatter for the export.
+   * For example, we might have a boolean field with "Formatters.checkmark" but we would like see a translated value for (True/False).
+   */
+  exportGroupTotalsFormatter?: any;
 
   /**
    * Defaults to false, which leads to Formatters being evaluated on export.

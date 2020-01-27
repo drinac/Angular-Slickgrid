@@ -6,6 +6,8 @@ import * as ExcelBuilder from 'excel-builder-webpacker';
 import { Subject } from 'rxjs';
 import * as moment_ from 'moment-mini';
 const moment = moment_; // patch to fix rollup "moment has no default export" issue, document here https://github.com/rollup/rollup/issues/670
+import * as isequal_ from 'lodash.isequal';
+const isequal = isequal_; // patch to fix rollup to work
 
 
 import {
@@ -41,6 +43,7 @@ export class ExcelExportService {
   private _stylesheet: ExcelStylesheet;
   private _stylesheetFormats: any;
   private _workbook: ExcelWorkbook;
+  private _customStyleSheets: any[];
   onGridBeforeExportToExcel = new Subject<boolean>();
   onGridAfterExportToExcel = new Subject<{ blob?: Blob; filename: string; format?: string; }>();
 
@@ -109,6 +112,8 @@ export class ExcelExportService {
         stringFormatter,
       };
 
+      this._customStyleSheets = [];
+
       // get the CSV output from the grid data
       const dataOutput = this.getDataOutput();
 
@@ -119,6 +124,9 @@ export class ExcelExportService {
           if (this._gridOptions && this._gridOptions.excelExportOptions && this._gridOptions.excelExportOptions.customExcelHeader) {
             this._gridOptions.excelExportOptions.customExcelHeader(this._workbook, this._sheet);
           }
+
+          var columns = this._grid && this._grid.getColumns && this._grid.getColumns() || [];
+          this._sheet.setColumns(this.getColumnStyles(columns));
 
           const currentSheetData = this._sheet.data;
           let finalOutput = currentSheetData;
@@ -238,15 +246,57 @@ export class ExcelExportService {
     const columns = this._grid && this._grid.getColumns && this._grid.getColumns() || [];
 
     // data variable which will hold all the fields data of a row
-    const outputData = [];
-
+    let outputData = [];
+    const columnHeaderStyle = this._gridOptions && this._gridOptions.excelExportOptions && this._gridOptions.excelExportOptions.columnHeaderStyle;
+    let columnHeaderStyleId = this._stylesheetFormats.boldFormatter.id;
+    if (columnHeaderStyle) {
+      columnHeaderStyleId = this._stylesheet.createFormat(columnHeaderStyle).id
+    }
     // get all column headers (it might include a "Group by" title at A1 cell)
-    outputData.push(this.getColumnHeaderData(columns, { style: this._stylesheetFormats.boldFormatter.id }));
+    outputData.push(this.getColumnHeaderData(columns, { style: columnHeaderStyleId }));
 
     // Populate the rest of the Grid Data
     this.pushAllGridRowDataToArray(outputData, columns);
 
+    // If custom style data is set then map it to metadata columns
+    outputData = outputData.map(r => r.map(c => {
+      if (typeof (c) === 'object' && c.style) {
+        let st = this._customStyleSheets.find(s => isequal(s.style, c.style));
+        if (st) {
+          c.metadata = { style: st.idx };
+        } else {
+          const idx = this._stylesheet.createFormat(c.style).id;
+          this._customStyleSheets.push({ idx: idx, style: c.style });
+          c.metadata = { style: idx };
+        }
+      }
+      return c;
+    }));
+    
     return outputData;
+  }
+
+  private getColumnStyles(columns: Column[]): any[] {
+    const grouping = this._dataView && this._dataView.getGrouping && this._dataView.getGrouping();
+    const columnStyles = []
+    if (grouping) {
+      columnStyles.push({
+        bestFit: true,
+        columnStyles: (this._gridOptions && this._gridOptions.excelExportOptions && this._gridOptions.excelExportOptions.customColumnWidth) || 10
+      });
+    }
+
+    columns.forEach((columnDef) => {
+      const skippedField = columnDef.excludeFromExport || false;
+      // if column width is 0, then we consider that field as a hidden field and should not be part of the export
+      if ((columnDef.width === undefined || columnDef.width > 0) && !skippedField) {
+        columnStyles.push( {
+          bestFit: true,
+          width: columnDef.exportColumnWidth || (this._gridOptions && this._gridOptions.excelExportOptions && this._gridOptions.excelExportOptions.customColumnWidth) || 10
+        });
+      }
+    });
+    return columnStyles;
   }
 
   /** Get all column headers and format them in Bold */
@@ -420,9 +470,13 @@ export class ExcelExportService {
 
       const skippedField = columnDef.excludeFromExport || false;
 
-      // if there's a groupTotalsFormatter, we will re-run it to get the exact same output as what is shown in UI
-      if (columnDef.groupTotalsFormatter) {
-        itemData = columnDef.groupTotalsFormatter(itemObj, columnDef);
+      // if there's a exportGroupTotalsFormatter or group totals formatter, we will re-run it to get the exact same output as what is shown in UI
+      if (columnDef.exportGroupTotalsFormatter) {
+        itemData = columnDef.exportGroupTotalsFormatter(itemObj, columnDef);
+      } else {
+        if (columnDef.groupTotalsFormatter) {
+          itemData = columnDef.groupTotalsFormatter(itemObj, columnDef);
+        }
       }
 
       // does the user want to sanitize the output data (remove HTML tags)?

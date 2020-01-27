@@ -1230,7 +1230,7 @@ describe('ExcelExportService', () => {
       });
 
       it('should return a date time format when using FieldType.date', async () => {
-        const input = new Date('2012-02-28T23:01:52.103Z');
+        const input = new Date('2012-02-28T18:01:52.103Z');
         const expectedDate = '2012-02-28';
 
         service.init(gridStub, dataViewStub);
