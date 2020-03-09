@@ -258,6 +258,9 @@ export interface GridOption {
   /** Some default options to set for the export service */
   exportOptions?: ExportOption;
 
+  /** if defined and enablefiltering is enabled and local then also call the external filter function with externalfilterfunction args */
+  externalFilterFunction?: any;
+
   /** Defaults to 25, which is the grid footer row panel height */
   footerRowHeight?: number;
 

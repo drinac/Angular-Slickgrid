@@ -45,6 +45,7 @@ export class FilterService {
   private _filtersMetadata: any[] = [];
   private _columnFilters: ColumnFilters = {};
   private _dataView: any;
+  private _externalFilterArgs;
   private _grid: any;
   private _onSearchChange: SlickEvent;
   private httpCancelRequests$: Subject<void> = new Subject<void>(); // this will be used to cancel any pending http request
@@ -262,7 +263,8 @@ export class FilterService {
 
       // if we still don't have a column definition then we should return then row anyway (true)
       if (!columnDef) {
-        return true;
+        //return true; no need return true is after the for loop
+        break;
       }
 
       // Row Detail View plugin, if the row is padding we just get the value we're filtering on from it's parent
@@ -313,7 +315,8 @@ export class FilterService {
 
       // no need to query if search value is empty
       if (searchTerm === '' && (!searchValues || (Array.isArray(searchValues) && searchValues.length === 0))) {
-        return true;
+        //return true; 
+        break;
       }
 
       // if search value has a regex match we will only keep the value without the operator
@@ -356,8 +359,15 @@ export class FilterService {
         return false;
       }
     }
-
+    if (this._gridOptions.externalFilterFunction) {
+      return this._gridOptions.externalFilterFunction(item,this._externalFilterArgs);
+    }
     return true;
+  }
+
+  setExternalFilterArgs(obj: any) {
+    this._externalFilterArgs = obj;
+    this.emitFilterChanged(EmitterType.local);
   }
 
   getColumnFilters() {
